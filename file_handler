@@ -1,0 +1,118 @@
+#!/bin/bash
+# Lorena Gomes de Oliveira Cabral - 20183002361
+# This script will open, delete or rename any file you want without having
+# to look for it among folders. You just need to know the name or part of it.
+# This script has been tested with extensions such as .zip, .txt, .pdf, .docx and .png.
+
+if [ $# -eq 0 ]; then #Check if the command line is in correct format.
+	echo "Use: $0 [File]"
+	exit 1
+fi
+
+package_name="xdg-utils"
+package_found=$(dpkg -l xdg-utils | gawk '/xdg-utils/ {print $2}')
+
+if [ "$package_found" != "$package_name" ]; then # Check if the package to open files already is installed.
+	echo "=================================================================================="
+	echo "And important packge needs to be installed."
+	echo "=================================================================================="
+	apt-get update
+	apt-get install -y xdg-utils
+	echo "=================================================================================="
+	echo "Please, run the script again."
+	echo "=================================================================================="
+else # If package is alread installed.
+	location=$(locate -eb $1)
+	if [ "$location" == "" ]; then # If file not found.
+		echo "File not found."
+		exit 1
+	else # If file was found.
+		list=$(locate -eb $1 | wc -l) # Search the location of the file and count how many lines.
+		if [ "$list" -gt 1 ]; then # If exist more than one file with the same name the user will be to choose wich one.
+			files=$(locate -eb $1 | gawk -F'/' '{print $NF}') # Catch just the names of the files.
+			answer=
+			echo "=================================================================================="
+			echo "More than one file was found whose name is composed by $1. Which one you need?"
+			echo "=================================================================================="
+				until [ "$answer" == 1 ]; do
+					for  FILE in "$files"; do
+						echo "$FILE" | gawk '{printf "%d) %s\n", NR, $0}'
+					done
+					echo ""
+					echo -n "Type it, please: "
+					read chosen_file
+					echo "Just to confirm, $chosen_file is what you need? Reply by tiping one of the numbers below:"
+					echo "1 - Yes"
+					echo "2 - No"
+					echo ""
+					echo -n "Answer, please: "
+					read answer
+					if [ "$answer" == 2 ]; then
+						echo ""
+						echo "So, type it again. Which file you need?"
+						echo ""
+					else echo "OK"
+					fi
+				done
+			echo "=============================================================================="
+		else # If exist just one file
+			echo "Ok. File found it in $location." #If exist just one file.
+			echo "What you would like to do with the file?"
+			select IDLIKE in Open Delete Rename;  do
+				if [ "$IDLIKE" == "" ]; then
+					echo "Invalid entry."
+					echo
+					continue
+				elif [ "$IDLIKE" == "Open" ]; then
+					extension=$(locate -eb $1 | gawk -F'/' '{print $NF}' | sed 's/^.*\.//')
+					if [ "$extension" == "txt" ]; then # If extension is txt, so open it with nano.
+						nano $(locate -eb $1)
+					else
+						xdg-open $(locate -eb $1) # Open it the chosen file.
+					fi
+					echo "OK."
+					kill -2 $$ # The script is finished. Interrupt the current process.
+				elif [ "$IDLIKE" == "Delete" ]; then
+					rm -rdv $(locate -eb $1) # Remove recursively the listed directories if they are empty and print.
+					kill -2 $$
+				elif [ "$IDLIKE" == "Rename" ]; then
+					echo -n  "Type it the name you would like to rename the file: "
+					read newname
+					echo "OK."
+					cd $(locate -eb $1 | sed 's/\/'$1'//') # Go to directory of file.
+					mv $1 "$newname" # Rename
+					echo "File renamed."
+					kill -2 $$
+				fi
+			done
+		fi
+		echo "What you would like to do with the file?"
+		select IDLIKE in Open Delete Rename;  do
+			if [ "$IDLIKE" == "" ]; then
+				echo "Invalid entry."
+				echo
+				continue
+			elif [ "$IDLIKE" == "Open" ]; then
+				extension=$(locate -eb "$chosen_file" | gawk -F'/' '{print $NF}' | sed 's/^.*\.//')
+				if [ "$extension" == "txt" ]; then # If extension is txt, so open it with nano.
+					nano $(locate -eb "$chosen_file")
+				else
+					xdg-open $(locate -eb "$chosen_file") # Open it the chosen file.
+				fi
+				echo "OK."
+				kill -2 $$
+			elif [ "$IDLIKE" == "Delete" ]; then
+				rm -rdv $(locate -eb "$chosen_file") # Remove recursively the listed directories if they are empty and print.
+				kill -2 $$
+			elif [ "$IDLIKE" == "Rename" ]; then
+				echo -n  "Type it the name you would like to rename the file: "
+				read newname
+				echo "OK."
+				cd $(locate -eb "$chosen_file" | sed 's/\/"$chosen_file"//') # Go to directory of file.
+				mv "$chosen_file" "$newname" # Rename
+				echo "File renamed."
+				kill -2 $$
+			fi
+		done
+	fi # File was found.
+fi # Package is already installed.
